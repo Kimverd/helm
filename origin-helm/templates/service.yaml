@@ -1,0 +1,25 @@
+{{- range $name, $values := .Values.module }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "application.fullname" (merge (dict "nameOfModule" $name) $ ) }}-svc
+  labels:
+  {{- include "template.labels" (merge (dict "name" $name) $) | nindent 4 }}-{{ $name }}
+  {{- if $values.service.labels }}
+    {{- toYaml .labels | nindent 4 }}
+  {{- end }}
+  {{- if $values.service.annotations }}
+  annotations:  
+    {{- toYaml $values.service.annotations | nindent 4 }}
+  {{- end }}%
+spec:
+  type: {{ $values.service.type }}
+  {{- if $values.service.ports }}
+  ports:
+  {{- tpl (toYaml $values.service.ports) $ | nindent 4 }}
+
+{{- end }}
+  selector:
+    {{- include "template.selectorLabels" (merge (dict "name" $name) $) | nindent 4 }}
+{{- end }}

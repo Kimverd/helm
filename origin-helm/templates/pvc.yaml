@@ -1,0 +1,30 @@
+{{- range $name, $values := .Values.module }}
+---
+{{ if $values.pvc }}
+{{- range $pvcName, $pvcValue := $values.pvc }}
+{{- if $pvcValue.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ tpl $pvcName $ }}
+  {{- if $values.namespace }}
+  namespace: {{ $.Release.namespace }}
+  {{- end }}
+  labels:
+  {{- include "template.labels" (merge (dict "name" $name) $) | nindent 4 }}-{{$name}}
+  {{- if $pvcValue.labels }}
+    {{- toYaml $pvcValue.labels | nindent 4 }}
+  {{- end }}
+  {{- if $pvcValue.annotations }}
+  annotations:
+    {{- toYaml $pvcValue.annotations | nindent 4 }}
+  {{- end }}
+{{- if $pvcValue.spec }}
+spec:
+  {{- tpl (toYaml $pvcValue.spec) $ | nindent 2 }}
+{{- end }}
+---
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

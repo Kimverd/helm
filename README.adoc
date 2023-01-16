@@ -1,0 +1,224 @@
+== Origin helm-chart v3.0.1
+Данный helm chart является универсальным чартом для всех подсистем fgislk для деплоя приложений в kubernetes кластер.
+
+=== Особенность v3.0.1
+
+Чарт версии 3.0.1 устанавливает все сервисы одной подсистемы. Чарт циклично создает объекты k8s. В связи с этим values.yaml файл имеет следующий шаблон с модулями.
+[source,yaml,attributes]
+----
+module:
+  exampleModuleName:
+    valuesExampleModuleName
+  example2ModuleName:
+    valuesExample2ModuleName
+----
+==== Новый вид файла values
+
+Конкретный пример с неполными values на 2 сервисах:
+[source,yaml,attributes]
+----
+module:
+  fgislk-ppod-control-service:
+    nameOverride: ""
+    fullnameOverride: ""
+    configmap: {}
+    image:
+      registry: nexus-infra-fgislk.phoenixit.ru
+      repository: fgislk/backend/ppod
+      name: fgislk-ppod-control-service
+      tag: uat_0.4.0-4
+    imagePullSecrets: []
+    imagePullPolicy: Always
+    job:
+      enabled: false
+    ingress:
+      enabled: false
+
+  fgislk-ppod-doc-package-registry:
+    nameOverride: ""
+    fullnameOverride: ""
+    image:
+      registry: nexus-infra-fgislk.phoenixit.ru
+      repository: fgislk/backend/ppod
+      name: fgislk-ppod-doc-package-registry
+      tag: uat_0.4.0-1
+    imagePullSecrets:
+      - name: pnsi-docker-reg
+    configmap:
+      annotations:
+        helm.sh/hook: pre-install,pre-upgrade
+        helm.sh/hook-weight: "1"  
+    job:
+      enabled: true
+      annotations:
+        helm.sh/hook: pre-install,pre-upgrade
+        helm.sh/hook-weight: "10"
+        helm.sh/hook-delete-policy: hook-succeeded,before-hook-creation
+      command: ["bin/bash", "-c","exec java -jar /app/*.jar --dbupdate"]
+      resources:
+        requests:
+          memory: '384Mi'
+          cpu: '300m'
+        limits:
+          memory: '384Mi'
+          cpu: '300m'
+----
+[IMPORTANT]
+В values необходимо указывать даже те части манифеста которые не используются. Наример, если не использовать ingress. То необходимо это явно указать.
+
+[source,yaml,attributes]
+----
+ingress:
+  enbaled: false
+----
+
+Явно указывать нужно не только ingress. Но и configmap annotation, если их нету. И job если не используется.
+
+[source,yaml,attributes]
+----
+job:
+  enabled: false
+configmap: {}
+----
+
+Остальные значения в values остаются как и были в версии 2.x.x и описаны ниже.
+
+=== Конфигурация
+В следующей таблице перечислены настраиваемые параметры origin-chart из файла values.yaml
+
+[Attributes]
+|===
+|Переменная |Описание
+|nameOverride | Добавление к имени релиза nameOverride
+|fullnameOverride | Полное переопределение имени
+|replicaCount | Количество экземпляров приложения 
+|image.registry | Адрес docker registry
+|image.repository | Адрес репозитория
+|image.name | Название сервиса в репозитории
+|image.tag | Тег образа
+|imagePullSecrets | Секрет для приватного докер регистри (создается заранее)
+|imagePullPolicy | Политика извлечения докер образа 
+|imageOverride | Переопределение образа (Указывается полный адрес образ включая тег) 
+|resources | Описание лимитов и запросов по ресурсам
+|strategy | Стратегия развертывания подов
+|annotations | Аннотация для пода
+|hostAliases | Добавление записей в /etc/hosts файл пода обеспечивает переопределение разрешения имени хоста на уровне пода, когда DNS и другие параметры неприменимы. 
+|serviceAccountName | Имя созданного сервис акаунта
+|podSecurityContext | Контекст безопасности для пода 
+|securityContext | Контекст безопасности 
+|nodeSelector | Ограничение запуска пода только на конкретных нодах 
+|ports | Описание портов контейнера 
+|livenessProbe | Проба для проверки работоспособности пода в течение времени 
+|readinessProbe | Проба для проверки готов ли контейнер принимать траффик
+|affinity | Правила выбора ноды работы пода 
+|tolerations | Допуски применяются к модулям и позволяют модулям планировать работу на узлах с соответствующими taints
+|dnsPolicy | Политика DNS kubernetes
+|dnsConfig | Конфигурация DNS пода 
+|env | Поле с переменными окружения. Все переменные появляются в configmap 
+|extraEnvVars | Дополнительные переменные. Передаются сразу в env в deployment
+|envFrom | Дополнительные переменные envfrom
+|service.type| Тип сервиса 
+|service.annotations | Аннотации для сервиса 
+|service.ports | Описание портов для сервиса 
+|ingress.enabled | Использовать или нет ingress 
+|ingress.className | Наименование class для ingress 
+|ingress.annotations |Аннотация для ingress 
+|ingress.svcPort | Описание порта сервиса 
+|ingress.tls | Описание для использования tls 
+|volumeMounts | Монтирование volume 
+|volumes | Описание volume 
+|command | Переопределение entrypoint контейнера 
+|args| Аргументы для command 
+|===
+
+=== Конфигурирование приложения через переменные окружения
+Конфигурация приложения должна производиться с помощью переменных окружения и указываться в секции env файла values.yaml.
+Пример:
+[source,yaml,attributes]
+----
+env:
+  var1: value1
+  var2: value2 
+----
+Переменные окружения, которые содержат секретные данные (пароли, реквизиты, etc), необходимо создавать в отдельном секрете перед установкой чарта.
+Пример манифеста для такого секрета (обратите внимание , что значение перменных должно быть предварительно закодировано в base64):
+[source,yaml,attributes]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secretsenv
+type: Opaque
+data:
+  secretvar1: YWRtaW4=
+  secretvar2: MWYyZDFlMmU2N2Rm
+----
+При этом необходимо прописать в секции envFrom файла values.yaml следующего вида конструкцию:
+[source,yaml,attributes]
+----
+envFrom:
+  - secretRef:
+      name: "secretenv"
+----
+Если необходимо добавить дополнительные переменные окружения, которые не конфигурируют приложение, но могут быть использованы сервисом, то необходимо использовать параметр extraEnvVars. Пример:
+[source,yaml,attributes]
+----
+extraEnvVars:
+  - name: MY_POD_IP
+    valueFrom:
+      fieldRef:
+        fieldPath: status.podIP
+----
+
+=== Маршрутизация трафика в кластер kubernetes 
+Для маршрутизации http-трафика извне к приложению необходимо использовать ingress, для этого нужно заполнить секцию относящуюся к ingress в файле values.yaml.
+Пример:
+[source,yaml,attributes]
+----
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: Prefix
+  svcPort: 80        
+  tls: []
+----
+где  svcPort порт сервиса для http-трафика, который определен в секции сервисаservice, host должен быть адресом в множестве wild-card dns-записи для проекта(уточнить у администратора).
+
+Если необходимо прокинуть tcp-трафик, то необходимо использовать LoadBalancer, предварительно сконфигурировав metallb (уточнить у администратора).
+
+=== Установка
+Добавление helm-репозитория :
+----
+helm repo add --username пользователь --password 'пароль' stable-fgislk https://gitlab.akb-it.ru/api/v4/projects/7987/packages/helm/stable
+----
+Скачивание файла values.yaml:
+----
+helm show --version=2.0.0 values stable-fgislk/origin-chart > values.yaml
+----
+
+Перед установкой необходимо заполнить файл values.yaml исходя из вашего приложения сервиса.
+После заполнения файла values.yaml установка производится следующей командой:
+----
+helm install <release-name> stable-fgislk/origin-chart -f ./values.yml -n <namespace>
+----
+
+=== Разработка helm-chart
+При отсутствии необходимого функционала в helm-чарте origin-chart, необходимо сделать форк чарта, и сервису необходимо самостоятельно модифицировать helm-chart. 
+Исходники чарта находятся по ссылке: https://gitlab.akb-it.ru/fgislk/devops/helm-charts/-/tree/main
+
+[IMPORTANT]
+====
+Название чарта исправить в файле Chart.yaml на название подсистемы, а также изменить версию чарта!
+====
+После чего необходимо упаковать чарт с помощью команды helm package и отправить его в репозиторий с помощью команды:
+----
+curl --request POST \
+     --form 'chart=@name-chart-version.tgz' \
+     --user user:paasword \
+     https://gitlab.akb-it.ru/api/v4/projects/7987/packages/helm/api/stable/charts
+----

@@ -1,0 +1,112 @@
+{{- range $name, $values := .Values.module }}
+---
+{{ if $values.job.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ $name }}-job"
+  namespace: {{ $.Release.Namespace }}
+  labels:
+  {{- with $values.job.labels }}
+  {{- tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
+  {{- include "template.labels" (merge (dict "name" $name) $) | nindent 4 }}-{{ $name }}
+  {{- with $values.job.annotations }}
+  annotations:
+    {{- tpl (toYaml .) $ | nindent 8 }}
+  {{- end }}
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      {{- with $values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- if $values.serviceAccountName }}
+      serviceAccountName: {{ tpl ($values.serviceAccountName) $ }}
+      {{- end }}
+      {{- if $values.podSecurityContext }}
+      securityContext:
+        {{- tpl (toYaml $values.podSecurityContext) $ | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ include "application.fullname" (merge (dict "nameOfModule" $name) $ ) }}
+          {{- if $values.job.image }}
+          image: "{{ $values.job.image.registry }}/{{ $values.job.image.repository }}/{{ $values.job.image.name | default $.Release.Name }}:{{ $values.job.image.tag | default $.Chart.AppVersion }}"
+          {{- else if  $values.image}}
+          image: "{{ $values.image.registry }}/{{ $values.image.repository }}/{{ $values.image.name | default $.Release.Name }}:{{ $values.image.tag | default $.Chart.AppVersion }}"
+          {{- end }}
+          {{- if $values.job.command }}
+          command:
+            {{- tpl (toYaml $values.job.command) $ | nindent 12 }}
+          {{- end }}
+          {{- if $values.job.args }}
+          args:
+          {{- tpl (toYaml $values.job.args) $ | nindent 12 }}
+          {{- end }}
+          env:
+            {{- if $values.job.env }}
+            ## User Configs
+            {{- range $setting, $option := $values.job.env }}
+            {{ $setting }}: "{{ $option }}"
+            {{- end }}
+            {{- end }}  
+          envFrom:
+          {{- if not $values.job.env }} 
+            {{- tpl (toYaml $values.envFrom) $ | nindent 12 }}
+            - configMapRef:
+                name: "{{ include "application.fullname" (merge (dict "nameOfModule" $name) $ ) }}-env"
+          {{- end }}
+          {{- with $values.job.resources }}
+          resources:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- if $values.job.securityContext }}
+          securityContext:
+            {{- tpl (toYaml $values.job.securityContext) $ | nindent 12 }}
+          {{- end }}
+          {{- if $values.job.volumeMounts }}
+          volumeMounts:
+            {{- tpl (toYaml $values.job.volumeMounts) $ | nindent 12 }}
+          {{- end }}
+      {{- with $values.job.nodeSelector }}
+      nodeSelector:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with $values.job.affinity }}
+      affinity:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- if $values.job.tolerations}}
+      {{- with $values.job.tolerations }}
+      tolerations:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- else if $values.tolerations }}
+        {{- with $values.tolerations }}
+      tolerations:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      {{- if $values.job.dnsPolicy }}
+      dnsPolicy: {{ $values.job.dnsPolicy | default "ClusterFirst" }}
+      {{- else if $values.dnsPolicy }}
+      dnsPolicy: {{ $values.dnsPolicy | default "ClusterFirst" }}
+      {{- end }}
+      {{- if $values.job.dnsConfig }}
+      dnsConfig:
+        {{- tpl (toYaml $values.job.dnsConfig) $ | nindent 8 }}
+      {{- else if $values.dnsConfig }}
+      dnsConfig:
+        {{- tpl (toYaml $values.dnsConfig) $ | nindent 8 }}
+      {{- end }}
+      {{- if $values.job.volumes }}
+      volumes:
+        {{- tpl (toYaml $values.job.volumes) $ | nindent 8 }}
+      {{- else if $values.volumes }}
+      volumes:
+        {{- tpl (toYaml $values.volumes) $ | nindent 8 }}
+      {{- end }}
+{{ end }}
+{{- end }}

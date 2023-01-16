@@ -1,0 +1,203 @@
+
+
+# module:
+#   #name: "fgislk-pvv-smev-adapter-r"
+#   fgislk-pvv-smev-adapter-r:
+#     nameOverride: ""
+#     fullnameOverride: ""
+#     configmap: {}
+#     job:
+#       enabled: false
+#     image:
+#       registry: nexus-infra-fgislk.phoenixit.ru
+#       repository: fgislk/backend/pvv
+#       name: fgislk-pvv-smev-adapter-r
+#       tag: dev_3005-2
+#     imagePullSecrets:
+#       - name: newnexustoken
+
+#     imageOverride: ""
+
+#     resources:
+#       requests:
+#         memory: '200Mi'
+#         cpu: '300m'
+#       limits:
+#         memory: '600Mi'
+#         cpu: '1'
+
+#     strategy:
+#       rollingUpdate:
+#         maxUnavailable: 0
+#         maxSurge: 1
+#       type: RollingUpdate
+
+#     #nodeSelector: {}
+#     #  node-role.kubernetes.io/worker-10: w10
+
+#     #rollout: true
+
+#     env: {}
+     
+
+#     extraEnvVars: {}
+
+#     envFrom: 
+#       - secretRef:
+#           name: "fgislk-pvv-smev-adapter-r"
+
+#     service:
+#       type: ClusterIP
+#       annotations: {}
+#       ports:
+#       - name: restapi
+#         port: 8080
+#         targetPort: 8080
+#     #    nodePort: 31664
+
+#     ingress:
+#       enabled: true
+#       className: ""
+#       annotations: 
+#         kubernetes.io/ingress.class: nginx
+#         # kubernetes.io/tls-acme: "true"
+#       hosts:
+#         - host: smev.pvv.dev.fgislk.at-consulting.ru
+#           paths:
+#             - path: /settings
+#               pathType: Prefix
+#             - path: /archive
+#               pathType: Prefix
+#             - path: /monitoring
+#               pathType: Prefix
+
+
+#       svcPort: 8080      
+#       tls: []
+#       #  - secretName: chart-example-tls
+#       #    hosts:
+#       #      - chart-example.local
+
+#     #dnsPolicy: "None"
+#     #
+#     #dnsConfig: 
+#     #  nameservers:
+#     #    - 192.168.245.20
+
+#     annotations:
+#       prometheus.io/scrape: "true"
+#       prometheus.io/port: "8080"
+#       prometheus.io/path: /monitoring
+
+#     command:
+#       - /bin/sh
+
+#     args: ["-c", "exec java -jar /app/*.jar"]
+  
+#   #name: "fgislk-pvv-crypto-module"
+#   fgislk-pvv-crypto-module:
+#     configmap: {}
+#     nameOverride: ""
+#     fullnameOverride: ""
+#     job:
+#       enabled: true
+#       image:
+#         registry: nexus-infra-fgislk.phoenixit.ru
+#         repository: fgislk/backend/pvv
+#         name: fgislk-pvv-storage-tool
+#         tag: release_1.0.5_sprint6
+#       annotations:
+#         helm.sh/hook: pre-upgrade,pre-install
+#         helm.sh/hook-weight: "-5"
+#         helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
+#       env:
+#         LOGGING_LEVEL_ROOT:  "INFO"
+#         TZ: "Europe/Moscow"
+#         storage_type: "postgresql"
+#         storage_url: "jdbc:postgresql://database/"
+#     mmand: ["bin/bash", "-c","exec java -jar /app/*.jar -migrate async_router -config SYS_ENV"]
+#     image:
+#       registry: nexus-infra-fgislk.phoenixit.ru
+#       repository: fgislk/backend/pvv
+#       name: fgislk-pvv-crypto-module
+#       tag: dev_3005-1
+#     imagePullSecrets:
+#       - name: newnexustoken
+#     imagePullPolicy: IfNotPresent
+#     imageOverride: ""
+
+#     resources:
+#       requests:
+#         memory: '200Mi'
+#         cpu: '100m'
+#       limits:
+#         memory: '400Mi'
+#         cpu: '1'
+
+#     strategy:
+#       rollingUpdate:
+#         maxUnavailable: 0
+#         maxSurge: 1
+#       type: RollingUpdate
+
+#     #nodeSelector: {}
+#     #  node-role.kubernetes.io/worker-10: w10
+
+
+#     #rollout: true
+
+#     env:
+#       LOGGING_LEVEL_ROOT:  "INFO"
+#       TZ: "Europe/Moscow"
+
+#     extraEnvVars: {}
+
+#     envFrom: {}
+#     #  - secretRef:
+#     #      name: "fgislk-pvv-smev-adapter-r"
+
+#     service:
+#       type: ClusterIP
+#       annotations: {}
+#       ports:
+#       - name: restapi
+#         port: 8083
+#         targetPort: 8083
+
+#     ingress:
+#       enabled: true
+#       className: ""
+#       annotations: 
+#         kubernetes.io/ingress.class: nginx
+#         nginx.ingress.kubernetes.io/proxy-body-size: 500m
+#         # kubernetes.io/tls-acme: "true"
+#       hosts:
+#         - host: cm.pvv.dev.fgislk.at-consulting.ru
+#           paths:
+#             - path: /crypto
+#               pathType: Prefix
+
+#       svcPort: 8083      
+#       tls: []
+#       #  - secretName: chart-example-tls
+#       #    hosts:
+#       #      - chart-example.local
+
+#     annotations:
+#       prometheus.io/scrape: "true"
+#       prometheus.io/port: "8080"
+#       prometheus.io/path: /actuator/prometheus
+
+#     volumeMounts:
+#       - mountPath: /mnt/keys
+#         name: crypto-keys
+
+#     volumes:  
+#       - name: crypto-keys
+#         secret:
+#           secretName: crypto-keys
+
+#     command:
+#       - /bin/sh
+
+#     args: ["-c", "mkdir -p /var/opt/cprocsp/keys/root && cp -r /mnt/keys /var/opt/cprocsp/keys/root/keys.000 && exec java -jar /app/*.jar"]

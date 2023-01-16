@@ -1,0 +1,120 @@
+{{- range $name, $values := .Values.module }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:  {{ include "application.fullname" (merge (dict "nameOfModule" $name) $ ) }} 
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "template.labels" (merge (dict "name" $name) $) | nindent 4 }}-{{ $name }}
+spec:
+  replicas: {{ $values.replicaCount | default "1" }}
+  {{- if $values.strategy }}
+  strategy:
+    {{- tpl (toYaml $values.strategy) $ | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "template.selectorLabels" (merge (dict "name" $name) $) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "template.selectorLabels" (merge (dict "name" $name) $) | nindent 8 }}
+      annotations:
+        checksum/config-env: {{ include (print $.Template.BasePath "/configmap-env.yaml") $ | sha256sum }}
+        {{- if $values.annotations }}
+          {{- tpl (toYaml $values.annotations) $ | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- if $values.hostAliases }}
+      hostAliases:
+        {{- tpl (toYaml $values.hostAliases) $ | nindent 8 }}
+      {{- end }}
+      {{- with $values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- if $values.serviceAccountName }}
+      serviceAccountName: {{ tpl ($values.serviceAccountName) $ }}
+      {{- end }}
+      {{- if $values.podSecurityContext }}
+      securityContext:
+        {{- tpl (toYaml $values.podSecurityContext) $ | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ include "application.fullname" (merge (dict "nameOfModule" $name ) $ ) }}
+          {{- if $values.imageOverride }}
+          image: '{{ $values.imageOverride }}'
+          {{- else if $values.image }}
+          image: "{{ $values.image.registry }}/{{ $values.image.repository }}/{{ $values.image.name | default $.Release.Name }}:{{ $values.image.tag | default $.Chart.AppVersion }}"
+          {{- end }}
+          imagePullPolicy: {{ $values.imagePullPolicy  | default "Always" }}
+          {{- if $values.command }}
+          command:
+            {{- tpl (toYaml $values.command) $ | nindent 12 }}
+          {{- end }}
+          {{- if $values.args }}
+          args:
+          {{- tpl (toYaml $values.args) $ | nindent 12 }}
+          {{- end }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+          {{- if $values.extraEnvVars }}
+            {{- tpl (toYaml $values.extraEnvVars) $ | nindent 12 }}
+          {{- end }}          
+          envFrom:
+            - configMapRef:
+                name: "{{ include "application.fullname" (merge (dict "nameOfModule" $name ) $ ) }}-env"
+          {{- if $values.envFrom }} 
+            {{- tpl (toYaml $values.envFrom) $ | nindent 12 }}
+          {{- end }}
+          {{- if $values.ports }}
+          ports:
+            {{- tpl (toYaml $values.ports) $ | nindent 12 }}
+          {{- end }}
+          {{- if $values.livenessProbe }}
+          livenessProbe:
+            {{- tpl (toYaml $values.livenessProbe) $ | nindent 12 }}
+          {{- end }}
+          {{- if $values.readinessProbe }}
+          readinessProbe:
+            {{- tpl (toYaml $values.readinessProbe) $ | nindent 12 }}
+          {{- end }}
+          {{- with $values.resources }}
+          resources:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- if $values.securityContext }}
+          securityContext:
+            {{- tpl (toYaml $values.securityContext) $ | nindent 12 }}
+          {{- end }}
+          {{- if $values.volumeMounts }}
+          volumeMounts:
+            {{- tpl (toYaml $values.volumeMounts) $ | nindent 12 }}
+          {{- end }}
+      {{- with $values.nodeSelector }}
+      nodeSelector:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with $values.affinity }}
+      affinity:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with $values.tolerations }}
+      tolerations:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      dnsPolicy: {{ $values.dnsPolicy | default "ClusterFirst" }}
+      {{- if $values.dnsConfig }}
+      dnsConfig:
+        {{- tpl (toYaml $values.dnsConfig) $ | nindent 8 }}
+      {{- end }}
+      {{- if $values.volumes }}
+      volumes:
+        {{- tpl (toYaml $values.volumes) $ | nindent 8 }}
+      {{- end }}
+{{- end }}
